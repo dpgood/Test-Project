@@ -124,7 +124,7 @@ unsigned char u8MMA7660ReadRegister(unsigned char u8RegisterAddress)
     puts("Returning alerted (invalid) result");
   }
 
-  time_delay_ms(250);
+  time_delay_ms(200);
   return result;
 }
 

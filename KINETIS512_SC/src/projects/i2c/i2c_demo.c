@@ -44,6 +44,10 @@ enum {
 
 typedef unsigned char boolean;
 //Function declarations
+void report_settings();
+void report_axis_values();
+void report_tilt_values();
+
 void calibrate();
 void delay(void);
 boolean alert_generated(signed char register_val);
@@ -56,47 +60,119 @@ void main (void)
 {
   printf("Kinetis I2C Demo\n");
 
-  //Initialize I2C
+  //Generic I2C initialization
   init_I2C();
 
   //Configure MMA7660 sensor
   MMA7660WriteRegister(0x09,0xE0); //Disable tap detection
   MMA7660WriteRegister(0x07,0x19); //Enable auto-sleep, auto-wake, and put in active mode
+  report_settings();
   
-  // Zero the accelerometer in its current state
+  // Zero the accelerometer
   calibrate();
 
-  printf("  X     Y     Z\n");
-
-  signed char resultx, resulty, resultz;
-  int tries_remaining;
-  unsigned long all_registers;
   while(1)
   {    
-    // Read all three axis registers.  Retry a few times if a read conflict occurs.
-    tries_remaining = 3;
-    do
-    {
-      all_registers = u8MMA7660ReadThreeRegisters(Accel_X_Register_Index);
-      resultx = (all_registers >> 16) & 0xFF;
-      resulty = (all_registers >> 8) & 0xFF;
-      resultz = all_registers & 0xFF;
-    }while (--tries_remaining > 0
-        && (alert_generated(resultx) 
-        || alert_generated(resulty) 
-        || alert_generated(resultz)
-        ));
-    
-    // Convert to a signed char and subtract the calibration offset
-    resultx = convert(Accel_X_Register_Index, resultx);
-    resulty = convert(Accel_Y_Register_Index, resulty);
-    resultz = convert(Accel_Z_Register_Index, resultz);
-      
-    printf("%3d    %3d     %3d\n",resultx,resulty,resultz);
+    report_axis_values();
+    report_tilt_values();
   }
 
 }
 
+/*******************************************************************/
+
+/*
+ * Report various settings:
+ *    Sample rate
+ *    Modes
+ */
+
+void report_settings()
+{
+  unsigned char reg_val;
+  
+  reg_val = u8MMA7660ReadRegister(Accel_Tilt_Register_Index);
+  printf("Tilt Register = %0x\n", reg_val);
+  
+  reg_val = u8MMA7660ReadRegister(Accel_SRST_Register_Index);
+  printf("Sample Rate Status Register = %0x\n", reg_val);
+  
+  reg_val = u8MMA7660ReadRegister(Accel_SPCNT_Register_Index);
+  printf("Sleep Count Register = %0x\n", reg_val);
+  
+  reg_val = u8MMA7660ReadRegister(Accel_INTSU_Register_Index);
+  printf("Interrupt Setup Register = %0x\n", reg_val);
+ 
+  reg_val = u8MMA7660ReadRegister(Accel_MODE_Register_Index);
+  printf("Mode Register = %0x\n", reg_val);
+  
+  reg_val = u8MMA7660ReadRegister(Accel_SR_Register_Index);
+  printf("Sample Rate Register = %0x\n", reg_val);
+  
+  reg_val = u8MMA7660ReadRegister(Accel_PDET_Register_Index);
+  printf("Tap/Pulse Detection Register = %0x\n", reg_val);
+  
+  reg_val = u8MMA7660ReadRegister(Accel_PD_Register_Index);
+  printf("Tap/Pulse Debounce Register = %0x\n", reg_val);
+}
+
+/*******************************************************************/
+
+/*
+ * Report current x, y, z values
+ */
+
+void report_axis_values()
+{
+  static boolean initialized = 0;
+  
+  if (!initialized)
+  {
+    printf("  X     Y     Z\n");
+    initialized = 1;
+  }
+
+  signed char resultx, resulty, resultz;
+  int tries_remaining;
+  unsigned long all_registers;
+  
+  // Read all three axis registers.  Retry a few times if a read conflict occurs.
+  tries_remaining = 3;
+  do
+  {
+    all_registers = u8MMA7660ReadThreeRegisters(Accel_X_Register_Index);
+    resultx = (all_registers >> 16) & 0xFF;
+    resulty = (all_registers >> 8) & 0xFF;
+    resultz = all_registers & 0xFF;
+  }while (--tries_remaining > 0
+      && (alert_generated(resultx) 
+      || alert_generated(resulty) 
+      || alert_generated(resultz)
+      ));
+  
+  // Turn the register read into a calibrated value
+  resultx = convert(Accel_X_Register_Index, resultx);
+  resulty = convert(Accel_Y_Register_Index, resulty);
+  resultz = convert(Accel_Z_Register_Index, resultz);
+    
+  printf("%3d    %3d     %3d\n",resultx,resulty,resultz);
+}
+
+/*******************************************************************/
+
+/*
+ * Report current tilt, tap, and shake values
+ */
+
+void report_tilt_values()
+{
+}
+
+/*******************************************************************/
+
+/*
+ * Support routine - does the register value show an alert?
+ */
 boolean alert_generated(signed char register_val)
 {
   return register_val & 0x40;
@@ -105,8 +181,9 @@ boolean alert_generated(signed char register_val)
 /*******************************************************************/
 
 /*
- * Calibrate accelerometer offset
+ * Calibrate accelerometer offset from an average
  */
+
 static signed char AxisOffsets[Accel_Num_Axis_Registers];
 void calibrate()
 {
@@ -149,7 +226,7 @@ void calibrate()
   x_offset= x_avg*-1;
   y_offset= y_avg*-1;
   z_offset= z_avg*-1;
-  //z_offset=(signed char)(z_avg-21)*-1;
+  //z_offset=(signed char)(z_avg-21)*-1; (Not sure why this was set this way in the demo)
 
   printf("Offsets are x=%d and y=%d and z=%d\n",x_offset,y_offset,z_offset);
   AxisOffsets[Accel_X_Register_Index] = x_offset;
