@@ -166,6 +166,67 @@ void report_axis_values()
 
 void report_tilt_values()
 {
+  unsigned char reg_val;
+  const unsigned char TiltShakeMask = 0x80;
+  const unsigned char TiltAlertMask = 0x40;
+  const unsigned char TiltTapMask   = 0x20;
+  const unsigned char TiltPoLaMask = 0x1C;
+  const unsigned char TiltBaFroMask = 0x03;
+  
+  reg_val = u8MMA7660ReadRegister(Accel_Tilt_Register_Index);
+  if (reg_val & TiltShakeMask)
+  {
+    printf("SHAKE detected\n");
+  }
+  if (reg_val & TiltAlertMask)
+  {
+    printf("ALERT detected - invalid value\n");
+  }
+    
+  if (reg_val & TiltTapMask)
+  {
+    printf("TAP detected\n");
+  }
+  
+  int masked_val = (reg_val & TiltPoLaMask) >> 2;
+  switch (masked_val)
+  {
+  case 0x00:
+    printf("Unknown Orientation\n");
+    break;
+  case 0x01:
+    printf("Equipment is Landscape Mode to Left\n");
+    break;
+  case 0x02:
+    printf("Equipment is Landscape Mode to Right\n");
+    break;
+  case 0x05:
+    printf("Equipment is standing vertically, inverted\n");
+    break;    
+  case 0x06:
+    printf("Equipment is standing vertically, normal orientation\n");
+    break;
+  default:
+    printf("Illegal register value in PoLa bits!\n");
+    break;
+  }
+  
+  masked_val = reg_val & TiltBaFroMask;
+  switch (masked_val)
+  {
+  case 0x00:
+    printf("Unknown Condition (front or back)\n");
+    break;
+  case 0x01:
+    printf("Equipment is lying on its front\n");
+    break;
+  case 0x02:
+    printf("Equipment is lying on its back\n");
+    break;
+  default:
+    printf("Illegal register value in BaFro bits!\n");
+    break;
+  }
 }
 
 /*******************************************************************/
