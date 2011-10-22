@@ -69,21 +69,7 @@ void main (void)
 
   while(1)
   {    
-#if 0    
-    //Read x-axis register
-    resultx = convert(Accel_X_Register_Index, u8MMA7660ReadRegister(Accel_X_Register_Index)& 0x3F);
-    printf("1. %3d", (int) resultx);
-
-    //Read y-axis register
-    resulty = convert(Accel_Y_Register_Index, u8MMA7660ReadRegister(Accel_Y_Register_Index)& 0x3F);
-    printf("   %3d", (int) resulty);
-
-    //Read z-axis register
-    resultz = convert(Accel_Z_Register_Index, u8MMA7660ReadRegister(Accel_Z_Register_Index)& 0x3F);
-    printf("   %3d\n", (int) resultz);
-#endif
-    
-    // Or you can do this all at once
+    // Read all three axis registers
     all_registers = u8MMA7660ReadThreeRegisters(Accel_X_Register_Index);
     resultx = convert(Accel_X_Register_Index, (all_registers >> 16) & 0x3F);
     resulty = convert(Accel_Y_Register_Index, (all_registers >> 8) & 0x3F);
