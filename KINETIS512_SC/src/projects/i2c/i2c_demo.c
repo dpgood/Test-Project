@@ -16,6 +16,7 @@
 #include "lptmr.h"
 #include <stdio.h>
 
+
 //Determine which chip is being used to determine if need to configure I2C0 or I2C1
 #ifdef TWR_K60N512
   #include "k60_i2c.h"
@@ -41,9 +42,11 @@ enum {
   Accel_Number_Of_Registers
 };
 
+typedef unsigned char boolean;
 //Function declarations
 void calibrate();
 void delay(void);
+boolean alert_generated(signed char register_val);
 signed char convert (int axis, signed char input);
 /********************************************************************/
 /*
@@ -51,8 +54,6 @@ signed char convert (int axis, signed char input);
  */
 void main (void)
 {
-  signed char resultx, resulty, resultz;
-  unsigned long all_registers = 0;
   printf("Kinetis I2C Demo\n");
 
   //Initialize I2C
@@ -67,16 +68,38 @@ void main (void)
 
   printf("  X     Y     Z\n");
 
+  signed char resultx, resulty, resultz;
+  int tries_remaining;
+  unsigned long all_registers;
   while(1)
   {    
-    // Read all three axis registers
-    all_registers = u8MMA7660ReadThreeRegisters(Accel_X_Register_Index);
-    resultx = convert(Accel_X_Register_Index, (all_registers >> 16) & 0x3F);
-    resulty = convert(Accel_Y_Register_Index, (all_registers >> 8) & 0x3F);
-    resultz = convert(Accel_Z_Register_Index, all_registers & 0x3F);
+    // Read all three axis registers.  Retry a few times if a read conflict occurs.
+    tries_remaining = 3;
+    do
+    {
+      all_registers = u8MMA7660ReadThreeRegisters(Accel_X_Register_Index);
+      resultx = (all_registers >> 16) & 0xFF;
+      resulty = (all_registers >> 8) & 0xFF;
+      resultz = all_registers & 0xFF;
+    }while (--tries_remaining > 0
+        && (alert_generated(resultx) 
+        || alert_generated(resulty) 
+        || alert_generated(resultz)
+        ));
+    
+    // Convert to a signed char and subtract the calibration offset
+    resultx = convert(Accel_X_Register_Index, resultx);
+    resulty = convert(Accel_Y_Register_Index, resulty);
+    resultz = convert(Accel_Z_Register_Index, resultz);
+      
     printf("%3d    %3d     %3d\n",resultx,resulty,resultz);
   }
 
+}
+
+boolean alert_generated(signed char register_val)
+{
+  return register_val & 0x40;
 }
 
 /*******************************************************************/
@@ -106,9 +129,9 @@ void calibrate()
   for(int i=0;i<nIterations;i++)
   {
     all_registers = u8MMA7660ReadThreeRegisters(Accel_X_Register_Index);
-    x_axis_reg_val = (all_registers >> 16) & 0x3F;
-    y_axis_reg_val = (all_registers >> 8) & 0x3F;
-    z_axis_reg_val = all_registers & 0x3F;
+    x_axis_reg_val = (all_registers >> 16) & 0xFF;
+    y_axis_reg_val = (all_registers >> 8) & 0xFF;
+    z_axis_reg_val = all_registers & 0xFF;
     //printf("%3x    %3x     %3x\n",
         //x_axis_reg_val,y_axis_reg_val,z_axis_reg_val);
     
